@@ -3,11 +3,10 @@
 @author: Henry Keiter
 '''
 
-import string # @todo use string.punctuation
+import string
 
 NWS_DELIMITERS = ['--','-','\x97']
-PUNCTUATION = ''.join(['.',',','?','!',"'",'"',':',';','(',')','/','`','-',
-                       '\x92','\x93','\x94','\x97'])
+PUNCTUATION = ''.join([string.punctuation, '\x92','\x93','\x94','\x97'])
 TERMINATORS = ['.', '?', '!']
 NON_TERMINATORS = ['Dr.', 'Ms.', 'Mrs.', 'Mr.', 'Mme.', 'Jr.', 'Sr.']
 

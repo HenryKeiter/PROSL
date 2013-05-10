@@ -18,14 +18,15 @@ Created on Nov 26, 2012
 import collections
 import os
 import sys
-from _resources improt NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
+from _resources import NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
+from optparse import OptionParser
 
 def _common_words(**opts):
     if opts.get('track_all_words'):
         return ['']
     from _resources import COMMON_WORDS
     if opts.get('extended_list'):
-        from _resources improt COMMON_WORDS_EXTENSION
+        from _resources import COMMON_WORDS_EXTENSION
         w = [x for x in COMMON_WORDS + COMMON_WORDS_EXTENSION]
         w.sort()
         return w
@@ -49,7 +50,7 @@ def _option_parser():
         identify multiple speakers in one paragraph?
         track & identify repeated punctuation?
     '''
-    from optparse import OptionParser
+    
     parser = OptionParser('usage: %prog filename [options], or '
                           '%prog -h to display help')
     parser.add_option('-a','--track-all-words', action='store_true', 
@@ -197,7 +198,7 @@ def _get_stats(text):
                                     stats['Word Count'])
     return stats
 
-def validate(text, **opts):
+def analyze(text, **opts):
     proximity = opts.get('proximity', 0)
     wthresh = opts.get('word_thresh', 17)
     cthresh = opts.get('char_thresh', 95)
@@ -242,15 +243,15 @@ def _format_stats(stats, indices=False):
     '''
     @TODO indices currently never True (not implemented)
     '''
-    s = ('Character Count:\t\t\t%d\n'
-         'Letter Count:   \t\t\t%d\n'
-         'Word Count: \t\t\t\t%d\n'
-         'Sentence Count: \t\t\t%d\n'
-         'Average Sentence Length:\t%.3f words\n'
-         'Average Word Length:\t\t%.3f characters\n'
-         'Unique Words:   \t\t\t%d\n'
-         'Top Twenty Words:   \t\t%s\n'
-         'Lexical Density:\t\t\t%.1f%%\n')
+    s = ('Character Count:\t\t\t{:d}\n'
+         'Letter Count:   \t\t\t{:d}\n'
+         'Word Count: \t\t\t\t{:d}\n'
+         'Sentence Count: \t\t\t{:d}\n'
+         'Average Sentence Length:\t{:.3f} words\n'
+         'Average Word Length:\t\t{:.3f} characters\n'
+         'Unique Words:   \t\t\t{:d}\n'
+         'Top Twenty Words:   \t\t{}\n'
+         'Lexical Density:\t\t\t{:.1f}%\n')
     vals = [stats['Character Count'],stats['Letter Count'],stats['Word Count'], 
             stats['Sentence Count'], stats['Average Sentence Length'], 
             stats['Average Word Length'], stats['Unique Words'], 
@@ -259,37 +260,40 @@ def _format_stats(stats, indices=False):
             stats['Lexical Density']]
     if indices:
         s += ('Indices:\n'
-              '\tGunning-Fog:\t\t\t%.3f (Education Level)'
-              '\tColeman-Liau:   \t\t%.3f (Education Level)'
-              '\tFlecsh-Kincaid: \t\t%.f (Readability Score)'
+              '\tGunning-Fog:\t\t\t{:.3f} (Education Level)'
+              '\tColeman-Liau:   \t\t{:.3f} (Education Level)'
+              '\tFlecsh-Kincaid: \t\t{:.3f} (Readability Score)'
               )
         vals.extend([
                      _gunning_fog_index(stats),
                      _coleman_liau_index(stats),
                      _flesch_kincaid_index(stats)
                      ])
-    return s % tuple(vals)
+    return s.format(tuple(vals))
 
 def main():
     parser = _option_parser()
+    filename = None
     try:
         opts, args = parser.parse_args(sys.argv)
     except:
         return
     try:
         with open(os.path.abspath(args[1]), 'rb') as f:
+            filename = f.name
             text = f.read()
     except:
-        print('Unable to open file "%s".')
+        print('Unable to open file "{}".'.format(filename))
+        print(parser.usage)
         return
     
-    flags, stats = validate(text, **opts.__dict__)
+    flags, stats = analyze(text, **opts.__dict__)
     stats['flag_count'] = len(flags) 
     if opts.out_file:
         try:
             with open(os.path.abspath(opts.out_file), 'wb') as f:
                 f.write('\n'.join(map(str,flags)))
-                f.write('Total number of flags:\t%s\n' % len(flags))
+                f.write('Total number of flags:\t{}\n'.format(len(flags)))
                 if stats:
                     f.write('\n\n### Stats ###\n\n')
                     f.write(_format_stats(stats))
@@ -297,7 +301,7 @@ def main():
             print('Error writing flags to file.')
     else:
         print('\n'.join(map(str,flags)))
-        print('Total number of flags:\t%s' % len(flags))
+        print('Total number of flags:\t{}'.format(len(flags)))
         if stats:
             print('\n\n### Stats ###\n\n')
             print(_format_stats(stats))
