@@ -3,7 +3,7 @@
 @author: Henry Keiter
 '''
 
-import string
+import string # @todo use string.punctuation
 
 NWS_DELIMITERS = ['--','-','\x97']
 PUNCTUATION = ''.join(['.',',','?','!',"'",'"',':',';','(',')','/','`','-',

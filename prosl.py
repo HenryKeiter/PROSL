@@ -13,7 +13,6 @@ Created on Nov 26, 2012
 @version: Python 3.3
 
 @TODO: Publish
-@TODO: use string.punctuation!!
 '''
 
 import collections
