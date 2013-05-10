@@ -11,15 +11,14 @@ Created on Nov 26, 2012
 
 @author: Henry Keiter
 @version: Python 3.3
-
-@TODO: Publish
 '''
 
 import collections
 import os
 import sys
 from _resources import NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
-from optparse import OptionParser
+import argparse
+from prosl_utils import search, split_string
 
 def _common_words(**opts):
     if opts.get('track_all_words'):
@@ -32,18 +31,7 @@ def _common_words(**opts):
         return w
     return [x for x in COMMON_WORDS]
 
-def _search(a, x):
-    '''Quick & dirty binary search for the common word list.'''
-    if not a:
-        raise ValueError("Key not found.")
-    midpt = len(a)//2
-    if a[midpt] > x:
-        return _search(a[:midpt], x)
-    elif a[midpt] < x:
-        return midpt+1+_search(a[midpt+1:], x)
-    return midpt
-
-def _option_parser():
+def _arg_parser():
     '''
     TODO:
     Other options: 
@@ -51,42 +39,49 @@ def _option_parser():
         track & identify repeated punctuation?
     '''
     
-    parser = OptionParser('usage: %prog filename [options], or '
-                          '%prog -h to display help')
-    parser.add_option('-a','--track-all-words', action='store_true', 
-                      default=False, help='Run proximity check even for common '
-                      'words.')
-    parser.add_option('-c', '--char-count', dest='char_thresh', type='int', 
-        default=0,
-        help='Flag sentences with a character count of CHAR-COUNT or more')
-    parser.add_option('-e','--extended-list',action='store_true',default=False,
+    parser = argparse.ArgumentParser('usage: %prog FILENAME [options], or '
+                                     '%prog -h to display help')
+    parser.add_argument('filename', help="The file to read")
+    parser.add_argument('-a','--track-all-words', action='store_true', 
+                      default=False, 
+                      help='Run proximity check even for common words.')
+    parser.add_argument('-c', '--char-count', dest='char_thresh', type=int, 
+        default=0, metavar='CHAR_COUNT',
+        help='Flag sentences with a character count of CHAR_COUNT or more')
+    parser.add_argument('-e','--extended-list',action='store_true',default=False,
                       help='Use extended common word filter for proximity '
                       'checking (overrides "-a").')
-    parser.add_option('-f','--file',dest='out_file',help='Write results to the '
+    parser.add_argument('-f','--file',dest='out_file',help='Write results to the '
                       'given file instead of to the screen.')
-    parser.add_option('-m','--line-nums',action='store_true',
+    parser.add_argument('-m','--line-nums',action='store_true',
                       default=False,help='Store line numbers with flags.(TODO)')
-    parser.add_option('-n','--nostats',dest='stats',action='store_false',
+    parser.add_argument('-n','--nostats',dest='stats',action='store_false',
                       default=True,help='Turn off the general statistics.')
-    parser.add_option('-p','--prox', dest='proximity', type='int', default=0,
+    parser.add_argument('-p','--prox', dest='proximity', type=int, default=0,
         help='Flag passages using the same word repeatedly (unless it is a '
         'common word in English). The argument is the minimum proximity for '
         'uncommon words.')
-    parser.add_option('-w', '--word-count', dest='word_thresh', type='int', 
-        default=0, 
-        help='Flag sentences with a word count of WORD-COUNT or more')
+    parser.add_argument('-w', '--word-count', dest='word_thresh', type=int, 
+        default=0, metavar='WORD_COUNT',
+        help='Flag sentences with a word count of WORD_COUNT or more')
     return parser
 
+
 def _split_text(text):
-    tokens = text.split()
-    for d in NWS_DELIMITERS:
-        tokens = reduce(lambda a,b:a+b,map(lambda x:x.split(d),tokens),[])
-    return tokens
+    '''Split up the given text in a useful way.
+
+    This splits the text into individual tokens. The returned vaule is a 
+    generator that yields `(line_num, token)` pairs.
+    '''
+
+    for line_num, line in enumerate(text.split('\n')):
+        for token in split_string(line, *NWS_DELIMITERS):
+            yield (line_num, token)
 
 
 def _gunning_fog_index(stats):
     '''
-    Higher = harder
+    Higher = more difficult
     
     Reading Level (Grade) = (avg_words_per_sen + 
         percent_words_with_3_or_more_syllables) * 0.4
@@ -101,7 +96,7 @@ def _gunning_fog_index(stats):
 
 def _coleman_liau_index(stats):
     '''
-    Higher = harder
+    Higher = more difficult
     
     Reading Level (grade) = (5.88 * avg_letters_per_word) - (29.6 * 
         (num_sentences/num_words)) - 15.8
@@ -132,8 +127,7 @@ def _count_syllables(word):
     raise NotImplementedError
 
 def _estimate_syllables(word):
-    '''
-    '''
+    '''Estimate the number of syllables in the given word.'''
     raise NotImplementedError
 
 def _get_stats(text):
@@ -145,7 +139,7 @@ def _get_stats(text):
             total syllable count in the text
     '''
     
-    split = _split_text(text)
+    split = [token for _, token in _split_text(text)]
     stats = {
              'Word Count':len(split),
              'Character Count':len(text),
@@ -209,12 +203,12 @@ def analyze(text, **opts):
     last_n_tokens = collections.deque([], proximity+1)
     current_sentence = []
     
-    for token in _split_text(text):
+    for line_num, token in _split_text(text): # @   TODO use line_num
         simpletoken = token.strip(PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
             try:
-                _search(_common_word_list, simpletoken)
+                search(_common_word_list, simpletoken)
             except ValueError:
                 if simpletoken in last_n_simple_tokens:
                     phrases.append(('Proximity threshold exceeded', simpletoken,
@@ -272,22 +266,24 @@ def _format_stats(stats, indices=False):
     return s.format(tuple(vals))
 
 def main():
-    parser = _option_parser()
+    parser = _arg_parser()
     filename = None
     try:
-        opts, args = parser.parse_args(sys.argv)
-    except:
-        return
+        opts = vars(parser.parse_args(sys.argv[1:]))
+        print(opts)
+    except Exception as e:
+        print('Error parsing arguments: {!s}'.format(e))
     try:
-        with open(os.path.abspath(args[1]), 'rb') as f:
+        filename = os.path.abspath(opts['filename'])
+        with open(filename, 'r') as f:
             filename = f.name
             text = f.read()
-    except:
-        print('Unable to open file "{}".'.format(filename))
-        print(parser.usage)
+    except IOError as e:
+        print('Unable to read file "{}".'.format(filename))
+        parser.print_help()
         return
     
-    flags, stats = analyze(text, **opts.__dict__)
+    flags, stats = analyze(text, **opts)
     stats['flag_count'] = len(flags) 
     if opts.out_file:
         try:
