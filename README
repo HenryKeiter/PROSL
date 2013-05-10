@@ -1,0 +1,5 @@
+PROSL is a PROSe Linter. It's intended to be a simple way to identify some quality warnings and other statistics about a plaintext prose passage, like repeated words and extremely long sentences. Obviously, there's no accounting for individual style, but the outputs can easily be used to set benchmarks. Set targets for a certain character's lexical density and average sentence length, and then PROSL that character's speech (not possible automatically yet). Get readability indices and so on. 
+
+PROSL is written in Python, on the basis that one day I will write an interactive plugin version of it for Sublime Text. Here's hoping.
+
+Contact: henry.keiter@gmail.com
