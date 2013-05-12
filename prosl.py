@@ -53,8 +53,6 @@ def _arg_parser():
                       'checking (overrides "-a").')
     parser.add_argument('-f','--file',dest='out_file',help='Write results to the '
                       'given file instead of to the screen.')
-    parser.add_argument('-m','--line-nums',action='store_true',
-                      default=False,help='Store line numbers with flags.(TODO)')
     parser.add_argument('-n','--nostats',dest='stats',action='store_false',
                       default=True,help='Turn off the general statistics.')
     parser.add_argument('-p','--prox', dest='proximity', type=int, default=0,
@@ -158,7 +156,7 @@ def _get_stats(text):
                 current_sen = []
         
         #Frequency analysis
-        # Note that if augmented forms appear before basic ones, they'll both
+        # @Note that if augmented forms appear before basic ones, they'll both
         # be caught separately. Consider using a wordlist to improve this, e.g.
         # http://www.sil.org/linguistics/wordlists/english/wordlist/wordsEn.txt
         stoken = token.strip(PUNCTUATION).lower()
@@ -185,7 +183,7 @@ def _get_stats(text):
                                         float(len(sentences)))
     stats['Sentence Count'] = len(sentences)
     stats['Unique Words'] = len(frequency)
-    top_twenty = frequency.items()
+    top_twenty = list(frequency.items())
     top_twenty.sort(key=lambda x:x[1],reverse=1)
     stats['Top Twenty Words'] = top_twenty[:20]
     stats['Lexical Density'] = 100*(float(stats['Unique Words'])/
@@ -198,12 +196,12 @@ def analyze(text, **opts):
     cthresh = opts.get('char_thresh', 95)
     _common_word_list = _common_words(**opts)
     
-    phrases = []
+    problem_phrases = []
     last_n_simple_tokens = collections.deque([], proximity)
     last_n_tokens = collections.deque([], proximity+1)
     current_sentence = []
     
-    for line_num, token in _split_text(text): # @   TODO use line_num
+    for line_num, token in _split_text(text):
         simpletoken = token.strip(PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
@@ -211,44 +209,51 @@ def analyze(text, **opts):
                 search(_common_word_list, simpletoken)
             except ValueError:
                 if simpletoken in last_n_simple_tokens:
-                    phrases.append(('Proximity threshold exceeded', simpletoken,
-                                    ' '.join(last_n_tokens)))
+                    problem_phrases.append(('Proximity threshold exceeded', 
+                                           simpletoken, line_num, 
+                                           ' '.join(last_n_tokens)))
             last_n_simple_tokens.append(simpletoken)
         current_sentence.append(token)
         if any(t in token for t in TERMINATORS):
             if not any(t in token for t in NON_TERMINATORS):
                 # End of sentence; check for problems.
                 if wthresh and len(current_sentence) >= wthresh:
-                    phrases.append(('Word-count threshold exceeded', 
-                                    len(current_sentence),
+                    problem_phrases.append(('Word-count threshold exceeded', 
+                                    len(current_sentence), line_num,
                                     ' '.join(current_sentence)))
-                if cthresh and reduce(lambda a,b: a + len(b), 
-                                      current_sentence, 0) > cthresh:
-                    phrases.append(('Character-count threshold exceeded', 
-                                    reduce(lambda a,b: a + len(b), 
-                                           current_sentence, 0),
-                                    ' '.join(current_sentence)))
+                if cthresh:
+                    lsen = sum(len(w) for w in current_sentence)
+                    if lsen > cthresh:
+                        problem_phrases.append((
+                           'Character-count threshold exceeded', lsen, line_num, 
+                           ' '.join(current_sentence)))
                 # Reset current sentence
                 current_sentence = []
-    phrases.sort()
-    return phrases, _get_stats(text) if opts.get('stats') else {}
+    problem_phrases.sort()
+    print(problem_phrases)
+    print( _get_stats(text))
+    return problem_phrases, _get_stats(text) if opts.get('stats') else {}
     
 def _format_stats(stats, indices=False):
     '''
     @TODO indices currently never True (not implemented)
     '''
-    s = ('Character Count:\t\t\t{:d}\n'
-         'Letter Count:   \t\t\t{:d}\n'
-         'Word Count: \t\t\t\t{:d}\n'
-         'Sentence Count: \t\t\t{:d}\n'
-         'Average Sentence Length:\t{:.3f} words\n'
-         'Average Word Length:\t\t{:.3f} characters\n'
-         'Unique Words:   \t\t\t{:d}\n'
-         'Top Twenty Words:   \t\t{}\n'
-         'Lexical Density:\t\t\t{:.1f}%\n')
-    vals = [stats['Character Count'],stats['Letter Count'],stats['Word Count'], 
-            stats['Sentence Count'], stats['Average Sentence Length'], 
-            stats['Average Word Length'], stats['Unique Words'], 
+    s = '\n'.join(['Character Count:\t\t\t{:d}',
+                  'Letter Count:   \t\t\t{:d}',
+                  'Word Count: \t\t\t\t{:d}',
+                  'Sentence Count: \t\t\t{:d}',
+                  'Average Sentence Length:\t{:.2f} words',
+                  'Average Word Length:\t\t{:.2f} characters',
+                  'Unique Words:   \t\t\t{:d}',
+                  'Top Twenty Words:   \t\t{:s}',
+                  'Lexical Density:\t\t\t{:.1f}%\n'])
+    vals = [stats['Character Count'],
+            stats['Letter Count'],
+            stats['Word Count'], 
+            stats['Sentence Count'],
+            stats['Average Sentence Length'], 
+            stats['Average Word Length'], 
+            stats['Unique Words'], 
             ', '.join(map(lambda x:x[0]+' ('+str(x[1])+')',
                           stats['Top Twenty Words'])),
             stats['Lexical Density']]
@@ -263,14 +268,15 @@ def _format_stats(stats, indices=False):
                      _coleman_liau_index(stats),
                      _flesch_kincaid_index(stats)
                      ])
-    return s.format(tuple(vals))
+    return s.format(*vals)
 
 def main():
     parser = _arg_parser()
     filename = None
     try:
+        if testing and len(sys.argv) < 2:
+            sys.argv.extend(testing)
         opts = vars(parser.parse_args(sys.argv[1:]))
-        print(opts)
     except Exception as e:
         print('Error parsing arguments: {!s}'.format(e))
     try:
@@ -285,9 +291,9 @@ def main():
     
     flags, stats = analyze(text, **opts)
     stats['flag_count'] = len(flags) 
-    if opts.out_file:
+    if opts.get('out_file'):
         try:
-            with open(os.path.abspath(opts.out_file), 'wb') as f:
+            with open(os.path.abspath(opts['out_file']), 'wb') as f:
                 f.write('\n'.join(map(str,flags)))
                 f.write('Total number of flags:\t{}\n'.format(len(flags)))
                 if stats:
@@ -301,6 +307,8 @@ def main():
         if stats:
             print('\n\n### Stats ###\n\n')
             print(_format_stats(stats))
+
+testing = [r'C:\test\mobydick.txt']
 
 if __name__ == '__main__':
     main()
