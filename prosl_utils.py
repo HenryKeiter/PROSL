@@ -25,8 +25,8 @@ def search(a, x):
         raise ValueError("Key not found.")
     midpt = len(a)//2
     if a[midpt] > x:
-        return _search(a[:midpt], x)
+        return search(a[:midpt], x)
     elif a[midpt] < x:
-        return midpt+1+_search(a[midpt+1:], x)
+        return midpt+1+search(a[midpt+1:], x)
     return midpt
 

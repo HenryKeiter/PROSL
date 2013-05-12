@@ -230,10 +230,19 @@ def analyze(text, **opts):
                 # Reset current sentence
                 current_sentence = []
     problem_phrases.sort()
-    print(problem_phrases)
-    print( _get_stats(text))
     return problem_phrases, _get_stats(text) if opts.get('stats') else {}
-    
+
+def _format_flag(flag):
+    '''Format a single flag in a human-readable way.
+
+    Flags consist of four parts: the flag type, the offending stat (such as 
+    length, repeated word, etc), the line number, and the full phrase.
+    '''
+
+    # TODO actually implement this. Probably want an enum-like thing for type.
+
+    return str(flag)
+ 
 def _format_stats(stats, indices=False):
     '''
     @TODO indices currently never True (not implemented)
@@ -291,10 +300,11 @@ def main():
     
     flags, stats = analyze(text, **opts)
     stats['flag_count'] = len(flags) 
+    # TODO flag count should include the run parameters
     if opts.get('out_file'):
         try:
             with open(os.path.abspath(opts['out_file']), 'wb') as f:
-                f.write('\n'.join(map(str,flags)))
+                f.write('\n'.join(map(_format_flag,flags)))
                 f.write('Total number of flags:\t{}\n'.format(len(flags)))
                 if stats:
                     f.write('\n\n### Stats ###\n\n')
@@ -302,13 +312,13 @@ def main():
         except:
             print('Error writing flags to file.')
     else:
-        print('\n'.join(map(str,flags)))
+        print('\n'.join(map(_format_flag,flags)))
         print('Total number of flags:\t{}'.format(len(flags)))
         if stats:
             print('\n\n### Stats ###\n\n')
             print(_format_stats(stats))
 
-testing = [r'C:\test\mobydick.txt']
+testing = [r'C:\test\mobydick.txt', '-e', '-w', '22', '-c', '100', '-p', '17']
 
 if __name__ == '__main__':
     main()

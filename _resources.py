@@ -8,7 +8,7 @@ import string
 NWS_DELIMITERS = ['--','-','\x97']
 PUNCTUATION = ''.join([string.punctuation, '\x92','\x93','\x94','\x97'])
 TERMINATORS = ['.', '?', '!']
-NON_TERMINATORS = ['Dr.', 'Ms.', 'Mrs.', 'Mr.', 'Mme.', 'Jr.', 'Sr.']
+NON_TERMINATORS = ['Dr.', 'Ms.', 'Mrs.', 'Mr.', 'Mme.', 'Jr.', 'Sr.', 'St.']
 
 COMMON_WORDS = ["","a","about","all","an","and","are","as","at",
     "be","been","but","by","call","can","come","could","day","did",
