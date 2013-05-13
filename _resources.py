@@ -3,6 +3,7 @@
 @author: Henry Keiter
 '''
 
+import os
 import string
 import zipfile
 
@@ -140,6 +141,8 @@ COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
     "woman","women","won't","wonder","wood","work","world","written",
     "wrong","wrote","yard","year","yellow","yes","yet","young"]
 
+VOWELS = ('a', 'e', 'i', 'o', 'u', 'y', 'A', 'E', 'I', 'O', 'U', 'Y')
+
 def get_syllable_files():
     '''Get two read-only file-like objects, representing the two syllable files.
 
@@ -148,7 +151,8 @@ def get_syllable_files():
     `delimited`, `non_delimited`.
     '''
 
-    syl_loc = './syllables.zip'
+    syl_loc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                           'syllables.zip')
     try:
         with zipfile.ZipFile(syl_loc) as z:
             delimited = z.open('mhyph.txt', 'rU')

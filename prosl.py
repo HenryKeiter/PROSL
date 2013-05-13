@@ -17,12 +17,11 @@ import argparse
 import collections
 import os
 import sys
-from _resources import NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
-from _resources import get_syllable_files
+import _resources
 from prosl_utils import insensitive_string_search, split_string, memoized
 
 SYLLABLE_WORDS, WORDS = ([l.strip().decode('utf-8') for l in f.readlines()] 
-                         for f in get_syllable_files())
+                         for f in _resources.get_syllable_files())
 
 PROXIMITY_FLAG = 10
 CTHRESH_FLAG = 20
@@ -32,13 +31,12 @@ WTHRESH_FLAG = 30
 def _common_words(**opts):
     if opts.get('track_all_words'):
         return ['']
-    from _resources import COMMON_WORDS
     if opts.get('extended_list'):
-        from _resources import COMMON_WORDS_EXTENSION
-        w = [x for x in COMMON_WORDS + COMMON_WORDS_EXTENSION]
+        w = [x for x in (_resources.COMMON_WORDS + 
+                         _resources.COMMON_WORDS_EXTENSION)]
         w.sort()
         return w
-    return [x for x in COMMON_WORDS]
+    return [x for x in _resources.COMMON_WORDS]
 
 @memoized
 def _count_syllables(word):
@@ -66,7 +64,6 @@ def _estimate_syllables(word):
         Return the greater of <the number of remaining "vowels", or 1>
     '''
     
-    vowels = ('a', 'e', 'i', 'o', 'u', 'y')
     length = len(word)
     if length < 3:
         return 1
@@ -74,8 +71,8 @@ def _estimate_syllables(word):
     sylls = 0
     last_ch = None
     for ch in word:
-        if ch in vowels:
-            if last_ch in vowels:
+        if ch in _resources.VOWELS:
+            if last_ch in _resources.VOWELS:
                 last_ch = None
             else:
                 sylls += 1
@@ -131,7 +128,7 @@ def _split_text(text):
     '''
 
     for line_num, line in enumerate(text.split('\n')):
-        for token in split_string(line, *NWS_DELIMITERS):
+        for token in split_string(line, *_resources.NWS_DELIMITERS):
             yield (line_num + 1, token)
 
 def _get_stats(text, indices=False):
@@ -153,8 +150,8 @@ def _get_stats(text, indices=False):
     frequency = {}
     for token in split:
         current_sen.append(token)
-        if any(t in token for t in TERMINATORS):
-            if not any(t in token for t in NON_TERMINATORS):
+        if any(t in token for t in _resources.TERMINATORS):
+            if not any(t in token for t in _resources.NON_TERMINATORS):
                 sentences.append(' '.join(current_sen))
                 current_sen = []
         
@@ -162,7 +159,7 @@ def _get_stats(text, indices=False):
         # @Note that if augmented forms appear before basic ones, they'll both
         # be caught separately. Consider using a wordlist to improve this, e.g.
         # http://www.sil.org/linguistics/wordlists/english/wordlist/wordsEn.txt
-        stoken = token.strip(PUNCTUATION).lower()
+        stoken = token.strip(_resources.PUNCTUATION).lower()
         alnum_count += len(stoken)
         if indices:
             sylls = _count_syllables(stoken)
@@ -213,7 +210,7 @@ def analyze(text, **opts):
     current_sentence = []
     
     for line_num, token in _split_text(text):
-        simpletoken = token.strip(PUNCTUATION).lower()
+        simpletoken = token.strip(_resources.PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
             if insensitive_string_search(simpletoken, _common_word_list) == -1:
@@ -222,8 +219,8 @@ def analyze(text, **opts):
                                            ' '.join(last_n_tokens)))
             last_n_simple_tokens.append(simpletoken)
         current_sentence.append(token)
-        if any(t in token for t in TERMINATORS):
-            if not any(t in token for t in NON_TERMINATORS):
+        if any(t in token for t in _resources.TERMINATORS):
+            if not any(t in token for t in _resources.NON_TERMINATORS):
                 # End of sentence; check for problems.
                 if wthresh and len(current_sentence) >= wthresh:
                     problem_phrases.append((WTHRESH_FLAG, line_num, 

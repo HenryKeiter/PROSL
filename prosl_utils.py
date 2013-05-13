@@ -122,6 +122,7 @@ def insensitive_string_search(key, items):
     return pivot
 
 def t():
+    '''Temporary function that I'm using to rebuild the syllable corpus'''
     delimited_lines = {}
     non_delimited_lines = []
     with open('mhyph.txt', encoding='utf-8') as i:
@@ -135,8 +136,6 @@ def t():
     with open('newhyph.txt', mode='w', encoding='utf-8') as n:
         for _, line_no in non_delimited_lines:
             n.write(delimited_lines[line_no])
-    
-    
 
 def main():
     # t()
