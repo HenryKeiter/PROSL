@@ -20,6 +20,11 @@ from _resources import NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
 import argparse
 from prosl_utils import search, split_string
 
+PROXIMITY_FLAG = 10
+CTHRESH_FLAG = 20
+WTHRESH_FLAG = 30
+
+
 def _common_words(**opts):
     if opts.get('track_all_words'):
         return ['']
@@ -31,51 +36,19 @@ def _common_words(**opts):
         return w
     return [x for x in COMMON_WORDS]
 
-def _arg_parser():
-    '''
-    TODO:
-    Other options: 
-        identify multiple speakers in one paragraph?
-        track & identify repeated punctuation?
-    '''
+def _count_syllables(word):
+    '''Get a real or estimated value for the number of syllables in the word.
     
-    parser = argparse.ArgumentParser('usage: %prog FILENAME [options], or '
-                                     '%prog -h to display help')
-    parser.add_argument('filename', help="The file to read")
-    parser.add_argument('-a','--track-all-words', action='store_true', 
-                      default=False, 
-                      help='Run proximity check even for common words.')
-    parser.add_argument('-c', '--char-count', dest='char_thresh', type=int, 
-        default=0, metavar='CHAR_COUNT',
-        help='Flag sentences with a character count of CHAR_COUNT or more')
-    parser.add_argument('-e','--extended-list',action='store_true',default=False,
-                      help='Use extended common word filter for proximity '
-                      'checking (overrides "-a").')
-    parser.add_argument('-f','--file',dest='out_file',help='Write results to the '
-                      'given file instead of to the screen.')
-    parser.add_argument('-n','--nostats',dest='stats',action='store_false',
-                      default=True,help='Turn off the general statistics.')
-    parser.add_argument('-p','--prox', dest='proximity', type=int, default=0,
-        help='Flag passages using the same word repeatedly (unless it is a '
-        'common word in English). The argument is the minimum proximity for '
-        'uncommon words.')
-    parser.add_argument('-w', '--word-count', dest='word_thresh', type=int, 
-        default=0, metavar='WORD_COUNT',
-        help='Flag sentences with a word count of WORD_COUNT or more')
-    return parser
-
-
-def _split_text(text):
-    '''Split up the given text in a useful way.
-
-    This splits the text into individual tokens. The returned vaule is a 
-    generator that yields `(line_num, token)` pairs.
+    If the word is present in the mhyph10 hyphenated corpus,
+    return the number of syllables found there (TODO get an unhyphenated version
+    as well, in which to do the lookup?). Otherwise, estimate the number of
+    syllables as best as possible (_estimate_syllables(word)).
     '''
+    raise NotImplementedError
 
-    for line_num, line in enumerate(text.split('\n')):
-        for token in split_string(line, *NWS_DELIMITERS):
-            yield (line_num, token)
-
+def _estimate_syllables(word):
+    '''Estimate the number of syllables in the given word.'''
+    raise NotImplementedError
 
 def _gunning_fog_index(stats):
     '''
@@ -114,19 +87,16 @@ def _flesch_kincaid_index(stats):
     return (206.835 - (1.015 * stats['Average Sentence Length']) - 
             (84.6 * float(stats['Syllable Count'])/stats['Word Count']))
 
-def _count_syllables(word):
-    '''Get a real or estimated value for the number of syllables in the word.
-    
-    If the word is present in the Miscellaneous/res/mhyph10 hyphenated corpus,
-    return the number of syllables found there (get an unhyphenated version
-    as well, in which to do the lookup?). Otherwise, estimate the number of
-    syllables as best as possible (_estimate_syllables(word)).
-    '''
-    raise NotImplementedError
+def _split_text(text):
+    '''Split up the given text in a useful way.
 
-def _estimate_syllables(word):
-    '''Estimate the number of syllables in the given word.'''
-    raise NotImplementedError
+    This splits the text into individual tokens. The returned vaule is a 
+    generator that yields `(line_num, token)` pairs. `line_num` is 1-indexed.
+    '''
+
+    for line_num, line in enumerate(text.split('\n')):
+        for token in split_string(line, *NWS_DELIMITERS):
+            yield (line_num + 1, token)
 
 def _get_stats(text):
     '''TODO: More stats!
@@ -209,8 +179,7 @@ def analyze(text, **opts):
                 search(_common_word_list, simpletoken)
             except ValueError:
                 if simpletoken in last_n_simple_tokens:
-                    problem_phrases.append(('Proximity threshold exceeded', 
-                                           simpletoken, line_num, 
+                    problem_phrases.append((PROXIMITY_FLAG,line_num,simpletoken, 
                                            ' '.join(last_n_tokens)))
             last_n_simple_tokens.append(simpletoken)
         current_sentence.append(token)
@@ -218,15 +187,14 @@ def analyze(text, **opts):
             if not any(t in token for t in NON_TERMINATORS):
                 # End of sentence; check for problems.
                 if wthresh and len(current_sentence) >= wthresh:
-                    problem_phrases.append(('Word-count threshold exceeded', 
-                                    len(current_sentence), line_num,
-                                    ' '.join(current_sentence)))
+                    problem_phrases.append((WTHRESH_FLAG, line_num, 
+                                           len(current_sentence),
+                                           ' '.join(current_sentence)))
                 if cthresh:
                     lsen = sum(len(w) for w in current_sentence)
                     if lsen > cthresh:
-                        problem_phrases.append((
-                           'Character-count threshold exceeded', lsen, line_num, 
-                           ' '.join(current_sentence)))
+                        problem_phrases.append((CTHRESH_FLAG, line_num, lsen, 
+                                               ' '.join(current_sentence)))
                 # Reset current sentence
                 current_sentence = []
     problem_phrases.sort()
@@ -235,12 +203,20 @@ def analyze(text, **opts):
 def _format_flag(flag):
     '''Format a single flag in a human-readable way.
 
-    Flags consist of four parts: the flag type, the offending stat (such as 
-    length, repeated word, etc), the line number, and the full phrase.
+    Flags consist of four parts: the flag type, the line number, the offending 
+    stat (such as length, repeated word, etc), and the full phrase.
     '''
 
-    # TODO actually implement this. Probably want an enum-like thing for type.
-
+    flag_type = flag[0]
+    if flag_type == PROXIMITY_FLAG:
+        return ('Line {1:d}: Proximity threshold '
+                'exeeded for the word "{2}": "{3}"').format(*flag)
+    elif flag_type == CTHRESH_FLAG:
+        return ('Line {1:d}: Character-count threshold exceeded ({2:d} '
+                'characters) in the following sentence: "{3}"').format(*flag)
+    elif flag_type == WTHRESH_FLAG:
+        return ('Line {1:d}: Word-count threshold exceeded ({2:d} words) '
+                'in the following sentence: "{3}"').format(*flag)
     return str(flag)
  
 def _format_stats(stats, indices=False):
@@ -279,6 +255,78 @@ def _format_stats(stats, indices=False):
                      ])
     return s.format(*vals)
 
+def _get_flag_desc(**opts):
+    proximity = opts.get('proximity', 0)
+    wthresh = opts.get('word_thresh', 17)
+    cthresh = opts.get('char_thresh', 95)
+    if not (proximity or wthresh or cthresh):
+        return 'No flags were defined.'
+    s = 'Flags are for {}.'
+    args = []
+    if wthresh:
+        args.append('sentence length > {} words'.format(wthresh-1))
+    if cthresh:
+        args.append('sentence length > {} characters'.format(cthresh-1))
+    if proximity:
+        args.append(
+            'two occurrences of an uncommon word < {} words apart'.format(
+                                                                proximity-1))
+    return s.format(', or '.join(args))
+
+def write_results(flags, statistics, **opts):
+    out = sys.stdout
+    if opts.get('out_file'):
+        try:
+            f = open(os.path.abspath(opts['out_file']), 'w')
+            out = f
+        except IOError:
+            print('Error writing to file')
+    try:
+        print('\n'.join(map(_format_flag,flags)), file=out)
+        print('Total number of flags:\t{}'.format(len(flags)), file=out)
+        print(_get_flag_desc(**opts), file=out)
+        if statistics:
+            print('\n\n### Stats ###\n\n', file=out)
+            print(_format_stats(statistics), file=out)
+    except IOError:
+        print('Error writing to file')
+    finally:
+        if opts.get('out_file'):
+            out.close()
+
+def _arg_parser():
+    '''
+    TODO:
+    Other options: 
+        identify multiple speakers in one paragraph?
+        track & identify repeated punctuation?
+    '''
+    
+    parser = argparse.ArgumentParser('usage: %prog FILENAME [options], or '
+                                     '%prog -h to display help')
+    parser.add_argument('filename', help="The file to read")
+    parser.add_argument('-a','--track-all-words', action='store_true', 
+                      default=False, 
+                      help='Run proximity check even for common words.')
+    parser.add_argument('-c', '--char-count', dest='char_thresh', type=int, 
+        default=0, metavar='CHAR_COUNT',
+        help='Flag sentences with a character count of CHAR_COUNT or more')
+    parser.add_argument('-e','--extended-list',action='store_true',default=False,
+                      help='Use extended common word filter for proximity '
+                      'checking (overrides "-a").')
+    parser.add_argument('-f','--file',dest='out_file',help='Write results to the '
+                      'given file instead of to the screen.')
+    parser.add_argument('-n','--nostats',dest='stats',action='store_false',
+                      default=True,help='Turn off the general statistics.')
+    parser.add_argument('-p','--prox', dest='proximity', type=int, default=0,
+        help='Flag passages using the same word repeatedly (unless it is a '
+        'common word in English). The argument is the minimum proximity for '
+        'uncommon words.')
+    parser.add_argument('-w', '--word-count', dest='word_thresh', type=int, 
+        default=0, metavar='WORD_COUNT',
+        help='Flag sentences with a word count of WORD_COUNT or more')
+    return parser
+
 def main():
     parser = _arg_parser()
     filename = None
@@ -299,26 +347,9 @@ def main():
         return
     
     flags, stats = analyze(text, **opts)
-    stats['flag_count'] = len(flags) 
-    # TODO flag count should include the run parameters
-    if opts.get('out_file'):
-        try:
-            with open(os.path.abspath(opts['out_file']), 'wb') as f:
-                f.write('\n'.join(map(_format_flag,flags)))
-                f.write('Total number of flags:\t{}\n'.format(len(flags)))
-                if stats:
-                    f.write('\n\n### Stats ###\n\n')
-                    f.write(_format_stats(stats))
-        except:
-            print('Error writing flags to file.')
-    else:
-        print('\n'.join(map(_format_flag,flags)))
-        print('Total number of flags:\t{}'.format(len(flags)))
-        if stats:
-            print('\n\n### Stats ###\n\n')
-            print(_format_stats(stats))
+    write_results(flags, stats, **opts)
 
-testing = [r'C:\test\mobydick.txt', '-e', '-w', '22', '-c', '100', '-p', '17']
+testing = [r'./test/mobydick.txt', '-e', '-w', '22', '-c', '100', '-p', '17']
 
 if __name__ == '__main__':
     main()
