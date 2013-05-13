@@ -4,6 +4,7 @@
 '''
 
 import string
+import zipfile
 
 NWS_DELIMITERS = ['--','-','\x97']
 PUNCTUATION = ''.join([string.punctuation, '\x92','\x93','\x94','\x97'])
@@ -138,3 +139,30 @@ COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
     "wild","win","wind","window","wing","winter","wire","wish",
     "woman","women","won't","wonder","wood","work","world","written",
     "wrong","wrote","yard","year","yellow","yes","yet","young"]
+
+def get_syllable_files():
+    '''Get two read-only file-like objects, representing the two syllable files.
+
+    One of these has delimited syllables; the other does not (this other one is
+    used only for lookups). They are otherwise identical. The files returned are
+    `delimited`, `non_delimited`.
+    '''
+
+    syl_loc = './syllables.zip'
+    try:
+        with zipfile.ZipFile(syl_loc) as z:
+            delimited = z.open('mhyph.txt', 'rU')
+            non_delimited = z.open('unhyph.txt', 'rU')
+            return delimited, non_delimited
+    except IOError as e:
+        print('Unable to open syllable files at {}'.format(syl_loc))
+        return None, None
+
+def main():
+    d = get_syllable_files()[0]
+    for line in d:
+        print(bytes.decode(line).strip().split('\u00a5'))
+        exit()
+
+if __name__ == '__main__':
+    main()

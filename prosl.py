@@ -13,12 +13,16 @@ Created on Nov 26, 2012
 @version: Python 3.3
 '''
 
+import argparse
 import collections
 import os
 import sys
 from _resources import NWS_DELIMITERS, TERMINATORS, NON_TERMINATORS, PUNCTUATION
-import argparse
-from prosl_utils import search, split_string
+from _resources import get_syllable_files
+from prosl_utils import insensitive_string_search, split_string, memoized
+
+SYLLABLE_WORDS, WORDS = ([l.strip().decode('utf-8') for l in f.readlines()] 
+                         for f in get_syllable_files())
 
 PROXIMITY_FLAG = 10
 CTHRESH_FLAG = 20
@@ -36,19 +40,51 @@ def _common_words(**opts):
         return w
     return [x for x in COMMON_WORDS]
 
+@memoized
 def _count_syllables(word):
     '''Get a real or estimated value for the number of syllables in the word.
     
-    If the word is present in the mhyph10 hyphenated corpus,
-    return the number of syllables found there (TODO get an unhyphenated version
-    as well, in which to do the lookup?). Otherwise, estimate the number of
-    syllables as best as possible (_estimate_syllables(word)).
+    If the word is present in the mhyph hyphenated corpus,
+    return the number of syllables found there. Else, estimate the number of
+    syllables as best as (easily) possible (_estimate_syllables(word)).
     '''
-    raise NotImplementedError
+    
+    line_no = insensitive_string_search(word, WORDS)
+    if line_no == -1:
+        return _estimate_syllables(word)
+    return len(split_string(SYLLABLE_WORDS[line_no], '\u00a5', '-'))
 
 def _estimate_syllables(word):
-    '''Estimate the number of syllables in the given word.'''
-    raise NotImplementedError
+    '''Estimate the number of syllables in the given word.
+
+    This method is very crude, but reasonably effective for this use.
+
+    Strategy:
+        Count all vowels (aeiouy) in the word.
+        Ignore every second vowel in a dipthong+ (ou -> 1; uou -> 2)
+        Ignore final 'e'
+        Return the greater of <the number of remaining "vowels", or 1>
+    '''
+    
+    vowels = ('a', 'e', 'i', 'o', 'u', 'y')
+    length = len(word)
+    if length < 3:
+        return 1
+
+    sylls = 0
+    last_ch = None
+    for ch in word:
+        if ch in vowels:
+            if last_ch in vowels:
+                last_ch = None
+            else:
+                sylls += 1
+                last_ch = ch
+        else:
+            last_ch = ch
+    if word.endswith('e'):
+        sylls -= 1
+    return max(sylls, 1)
 
 def _gunning_fog_index(stats):
     '''
@@ -98,13 +134,8 @@ def _split_text(text):
         for token in split_string(line, *NWS_DELIMITERS):
             yield (line_num + 1, token)
 
-def _get_stats(text):
-    '''TODO: More stats!
-        
-        Syllable Distribution
-            map from integers (num_sylls) to integers (count)
-        Syllable Count
-            total syllable count in the text
+def _get_stats(text, indices=False):
+    '''Get a bunch of statistics about the text.
     '''
     
     split = [token for _, token in _split_text(text)]
@@ -115,6 +146,8 @@ def _get_stats(text):
              'Average Sentence Length':None
              }
     alnum_count = 0
+    if indices:
+        syllable_dist = {}
     sentences = []
     current_sen = []
     frequency = {}
@@ -131,6 +164,9 @@ def _get_stats(text):
         # http://www.sil.org/linguistics/wordlists/english/wordlist/wordsEn.txt
         stoken = token.strip(PUNCTUATION).lower()
         alnum_count += len(stoken)
+        if indices:
+            sylls = _count_syllables(stoken)
+            syllable_dist[sylls] = syllable_dist.get(sylls, 0) + 1
         if stoken in frequency:
             frequency[stoken] += 1
         else: 
@@ -158,12 +194,17 @@ def _get_stats(text):
     stats['Top Twenty Words'] = top_twenty[:20]
     stats['Lexical Density'] = 100*(float(stats['Unique Words'])/
                                     stats['Word Count'])
+    if indices:
+        stats['Syllable Distribution'] = syllable_dist
+        stats['Syllable Count'] = sum(k*v for k, v in syllable_dist.items())
+
     return stats
 
 def analyze(text, **opts):
     proximity = opts.get('proximity', 0)
     wthresh = opts.get('word_thresh', 17)
     cthresh = opts.get('char_thresh', 95)
+    indices = opts.get('indices', False)
     _common_word_list = _common_words(**opts)
     
     problem_phrases = []
@@ -175,9 +216,7 @@ def analyze(text, **opts):
         simpletoken = token.strip(PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
-            try:
-                search(_common_word_list, simpletoken)
-            except ValueError:
+            if insensitive_string_search(simpletoken, _common_word_list) == -1:
                 if simpletoken in last_n_simple_tokens:
                     problem_phrases.append((PROXIMITY_FLAG,line_num,simpletoken, 
                                            ' '.join(last_n_tokens)))
@@ -198,7 +237,8 @@ def analyze(text, **opts):
                 # Reset current sentence
                 current_sentence = []
     problem_phrases.sort()
-    return problem_phrases, _get_stats(text) if opts.get('stats') else {}
+    return (problem_phrases, 
+            _get_stats(text, indices) if opts.get('stats') else {})
 
 def _format_flag(flag):
     '''Format a single flag in a human-readable way.
@@ -221,7 +261,6 @@ def _format_flag(flag):
  
 def _format_stats(stats, indices=False):
     '''
-    @TODO indices currently never True (not implemented)
     '''
     s = '\n'.join(['Character Count:\t\t\t{:d}',
                   'Letter Count:   \t\t\t{:d}',
@@ -244,9 +283,9 @@ def _format_stats(stats, indices=False):
             stats['Lexical Density']]
     if indices:
         s += ('Indices:\n'
-              '\tGunning-Fog:\t\t\t{:.3f} (Education Level)'
-              '\tColeman-Liau:   \t\t{:.3f} (Education Level)'
-              '\tFlecsh-Kincaid: \t\t{:.3f} (Readability Score)'
+              '\tGunning-Fog:\t\t\t{:.3f} (Education Level)\n'
+              '\tColeman-Liau:   \t\t{:.3f} (Education Level)\n'
+              '\tFlecsh-Kincaid: \t\t{:.3f} (Readability Score)\n'
               )
         vals.extend([
                      _gunning_fog_index(stats),
@@ -287,7 +326,7 @@ def write_results(flags, statistics, **opts):
         print(_get_flag_desc(**opts), file=out)
         if statistics:
             print('\n\n### Stats ###\n\n', file=out)
-            print(_format_stats(statistics), file=out)
+            print(_format_stats(statistics, opts.get('indices')), file=out)
     except IOError:
         print('Error writing to file')
     finally:
@@ -316,6 +355,9 @@ def _arg_parser():
                       'checking (overrides "-a").')
     parser.add_argument('-f','--file',dest='out_file',help='Write results to the '
                       'given file instead of to the screen.')
+    parser.add_argument('-i','--indices', dest='indices', action='store_true',
+                        default=False, help='Calculate various'
+                        'readability scores for the text.')
     parser.add_argument('-n','--nostats',dest='stats',action='store_false',
                       default=True,help='Turn off the general statistics.')
     parser.add_argument('-p','--prox', dest='proximity', type=int, default=0,
@@ -349,7 +391,9 @@ def main():
     flags, stats = analyze(text, **opts)
     write_results(flags, stats, **opts)
 
-testing = [r'./test/mobydick.txt', '-e', '-w', '22', '-c', '100', '-p', '17']
+    _count_syllables.cache.clear()
+
+testing = [r'./test/mobydick.txt','-e','-w','200','-c','100','-p','17','-i']
 
 if __name__ == '__main__':
     main()
