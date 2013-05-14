@@ -1,4 +1,5 @@
-'''Various utility funtionality--mostly for speed enhancements.'''
+'''Various utility funtionality--mostly for speed enhancements.
+'''
 
 import collections
 import functools
@@ -82,6 +83,8 @@ def search(key, items):
     '''Quick & dirty binary search. Find `key` in `items`.
 
     Returns -1 if the key is not found.
+
+    TODO Why on earth isn't this just using the bisect module???
     '''
 
     if not items:
@@ -102,6 +105,8 @@ def insensitive_string_search(key, items):
     Returns -1 if the key is not found.
 
     @NOTE: This function is *not* case-sensitive!!
+
+    TODO Why on earth isn't this just using the bisect module???
     '''
 
     if not items:
