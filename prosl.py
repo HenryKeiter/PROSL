@@ -27,16 +27,6 @@ CTHRESH_FLAG = 20
 WTHRESH_FLAG = 30
 
 
-def _common_words(**opts):
-    if opts.get('track_all_words'):
-        return ['']
-    if opts.get('extended_list'):
-        w = [x for x in (_resources.COMMON_WORDS + 
-                         _resources.COMMON_WORDS_EXTENSION)]
-        w.sort()
-        return w
-    return [x for x in _resources.COMMON_WORDS]
-
 @memoized
 def _count_syllables(word):
     '''Get a real or estimated value for the number of syllables in the word.
@@ -66,8 +56,10 @@ def _estimate_syllables(word):
         Return the greater of <the number of remaining "vowels", or 1>
     '''
     
-    length = len(word)
-    if length < 3:
+    if not word:
+        return 0
+
+    if len(word) < 3:
         return 1
 
     sylls = 0
@@ -81,7 +73,7 @@ def _estimate_syllables(word):
                 last_ch = ch
         else:
             last_ch = ch
-    if word.endswith('e'):
+    if word.endswith('e') or word.endswith('E'):
         sylls -= 1
     return max(sylls, 1)
 
@@ -133,7 +125,7 @@ def _split_text(text):
         for token in split_string(line, *_resources.NWS_DELIMITERS):
             yield (line_num + 1, token)
 
-def _get_stats(text, indices=False):
+def get_stats(text, indices=False):
     '''Get a bunch of statistics about the text.'''
     
     split = [token for _, token in _split_text(text)]
@@ -187,9 +179,8 @@ def _get_stats(text, indices=False):
                                         float(len(sentences)))
     stats['Sentence Count'] = len(sentences)
     stats['Unique Words'] = len(frequency)
-    top_twenty = list(frequency.items())
-    top_twenty.sort(key=lambda x:x[1],reverse=1)
-    stats['Top Twenty Words'] = top_twenty[:20]
+    top_twenty = sorted(frequency.items(), key=lambda x:(-x[1], x[0]))[:20]
+    stats['Top Twenty Words'] = top_twenty
     stats['Lexical Density'] = 100*(float(stats['Unique Words'])/
                                     stats['Word Count'])
     if indices:
@@ -202,8 +193,7 @@ def analyze(text, **opts):
     proximity = opts.get('proximity', 0)
     wthresh = opts.get('word_thresh', 17)
     cthresh = opts.get('char_thresh', 95)
-    indices = opts.get('indices', False)
-    _common_word_list = _common_words(**opts)
+    _common_word_list = _resources.common_words(**opts)
     
     problem_phrases = []
     last_n_simple_tokens = collections.deque([], proximity)
@@ -235,8 +225,7 @@ def analyze(text, **opts):
                 # Reset current sentence
                 current_sentence = []
     problem_phrases.sort()
-    return (problem_phrases, 
-            _get_stats(text, indices) if opts.get('stats') else {})
+    return problem_phrases
 
 def _format_flag(flag):
     '''Format a single flag in a human-readable way.
@@ -248,7 +237,7 @@ def _format_flag(flag):
     flag_type = flag[0]
     if flag_type == PROXIMITY_FLAG:
         return ('Line {1:d}: Proximity threshold '
-                'exeeded for the word "{2}": "{3}"').format(*flag)
+                'exceeded for the word "{2}": "{3}"').format(*flag)
     elif flag_type == CTHRESH_FLAG:
         return ('Line {1:d}: Character-count threshold exceeded ({2:d} '
                 'characters) in the following sentence: "{3}"').format(*flag)
@@ -314,7 +303,7 @@ def write_results(flags, statistics, **opts):
     out = sys.stdout
     if opts.get('out_file'):
         try:
-            f = open(os.path.abspath(opts['out_file']), 'w')
+            f = open(os.path.abspath(opts['out_file']), 'w', encoding='utf-8')
             out = f
         except IOError:
             print('Error writing to file')
@@ -386,7 +375,9 @@ def main():
         parser.print_help()
         return
     
-    flags, stats = analyze(text, **opts)
+    flags = analyze(text, **opts)
+    stats = (get_stats(text, opts.get('indices', False)) if opts.get('stats') 
+             else {})
     write_results(flags, stats, **opts)
 
     _count_syllables.cache.clear()

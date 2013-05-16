@@ -116,17 +116,23 @@ def insensitive_string_search(key, items):
 
 def t():
     '''Temporary function that I'm using to rebuild the syllable corpus'''
-
+    
     header = '\n# '.join(['# This syllable dictionary is derived from the Moby',
                          'Hyphenation List by Grady Ward. It was downloaded',
                          'from Project Gutenberg and is available here:',
-                         r'http://www.gutenberg.org/dirs/etext02/mhyph10.zip'])
+                         r'http://www.gutenberg.org/dirs/etext02/mhyph10.zip',
+                         '',
+                         "It's not perfect, but it's a decent start.",
+                         'TODO: Trim this monstrosity down!'])
 
+    import sys
     lu = {} # Using intermediate dict to weed out duplicate keys
     with open('mhyph.txt', encoding='utf-8') as i:
             for line in i:
-                lu[line.strip().replace('\u00a5','')] = \
-                    len(split_string(line.strip(),'\u00a5','-'))
+                line = line.strip()
+                lu[line.replace('\u00a5','')] = \
+                    min(len(split_string(line,'\u00a5','-')),
+                        lu.get(line.replace('\u00a5',''), sys.maxsize))
                        
     fmt = '\t"{}" : {},\n'
     with open('syll_dict.txt', mode='w', encoding='utf-8') as o:

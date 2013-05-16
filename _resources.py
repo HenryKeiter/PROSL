@@ -143,6 +143,13 @@ COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
 
 VOWELS = ('a', 'e', 'i', 'o', 'u', 'y', 'A', 'E', 'I', 'O', 'U', 'Y')
 
+def common_words(**opts):
+    if opts.get('track_all_words'):
+        return ['']
+    if opts.get('extended_list'):
+        return sorted(x for x in (COMMON_WORDS + COMMON_WORDS_EXTENSION))
+    return [x for x in COMMON_WORDS]
+
 def get_syllable_dict():
     '''Get a dict from (lowercase) words/phrases to syllable-count.'''
 

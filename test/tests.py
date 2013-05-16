@@ -9,6 +9,53 @@ import prosl
 import prosl_utils
 import _resources
 
+# A preposterous sentence from Moby Dick
+lorem_ipsum = ('Though in many natural objects, whiteness refiningly enhances '
+               'beauty, as if imparting some special virtue of its own, as in '
+               'marbles, japonicas, and pearls; and though various nations '
+               'have in some way recognised a certain royal preeminence in this'
+               ' hue; even the barbaric, grand old kings of Pegu placing the '
+               'title "Lord of the White Elephants" above all their other '
+               'magniloquent ascriptions of dominion; and the modern kings of '
+               'Siam unfurling the same snow white quadruped in the royal '
+               'standard; and the Hanoverian flag bearing the one figure of a '
+               'snow white charger; and the great Austrian Empire, Caesarian, '
+               'heir to overlording Rome, having for the imperial colour the '
+               'same imperial hue; and though this pre eminence in it applies '
+               'to the human race itself, giving the white man ideal mastership'
+               ' over every dusky tribe; and though, besides, all this, '
+               'whiteness has been even made significant of gladness, for among'
+               ' the Romans a white stone marked a joyful day; and though in '
+               'other mortal sympathies and symbolizings, this same hue is made'
+               ' the emblem of many touching, noble things the innocence of '
+               'brides, the benignity of age; though among the Red Men of '
+               'America the giving of the white belt of wampum was the deepest '
+               'pledge of honour; though in many climes, whiteness typifies the'
+               ' majesty of Justice in the ermine of the Judge, and contributes'
+               ' to the daily state of kings and queens drawn by milk white '
+               'steeds; though even in the higher mysteries of the most august '
+               'religions it has been made the symbol of the divine '
+               'spotlessness and power; by the Persian fire worshippers, the '
+               'white forked flame being held the holiest on the altar; and in '
+               'the Greek mythologies, Great Jove himself being made incarnate '
+               'in a snow white bull; and though to the noble Iroquois, the '
+               'midwinter sacrifice of the sacred White Dog was by far the '
+               'holiest festival of their theology, that spotless, faithful '
+               'creature being held the purest envoy they could send to the '
+               'Great Spirit with the annual tidings of their own fidelity; and'
+               ' though directly from the Latin word for white, all Christian '
+               'priests derive the name of one part of their sacred vesture, '
+               'the alb or tunic, worn beneath the cassock; and though among '
+               'the holy pomps of the Romish faith, white is specially employed'
+               ' in the celebration of the Passion of our Lord; though in the '
+               'Vision of St. John, white robes are given to the redeemed, and '
+               'the four and twenty elders stand clothed in white before the '
+               'great white throne, and the Holy One that sitteth there white '
+               'like wool; yet for all these accumulated associations, with '
+               'whatever is sweet, and honourable, and sublime, there yet lurks'
+               ' an elusive something in the innermost idea of this hue, which '
+               'strikes more of panic to the soul than that redness which '
+               'affrights in blood.')
 
 class TestAnalytics(unittest.TestCase):
     def setUp(self):
@@ -17,14 +64,87 @@ class TestAnalytics(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_split_string(self):
-        pass
+    def test_estimate_syllables(self):
+        self.assertEqual(0, prosl._estimate_syllables(''))
 
-    def test_search(self):
-        pass
+        self.assertEqual(1, prosl._estimate_syllables('a'))
+        self.assertEqual(1, prosl._estimate_syllables('an'))
+        self.assertEqual(1, prosl._estimate_syllables('I'))
 
-    def test_insensitive_string_search(self):
-        pass
+        self.assertEqual(1, prosl._estimate_syllables('the'))
+        self.assertEqual(1, prosl._estimate_syllables('ate'))
+        self.assertEqual(1, prosl._estimate_syllables('oat'))
+        
+        self.assertEqual(1, prosl._estimate_syllables('nn'))
+        self.assertEqual(1, prosl._estimate_syllables('tree'))
+        self.assertEqual(1, prosl._estimate_syllables('fire'))
+        self.assertEqual(1, prosl._estimate_syllables('pale'))
+        self.assertEqual(1, prosl._estimate_syllables('gross'))
+        self.assertEqual(1, prosl._estimate_syllables('strengths'))
+        self.assertEqual(5, prosl._estimate_syllables('archaeopterix'))
+        self.assertEqual(4, prosl._estimate_syllables('pterodactyl'))
+        self.assertEqual(1, prosl._estimate_syllables('hound'))
+        self.assertEqual(2, prosl._estimate_syllables('hounded'))
+        self.assertEqual(2, prosl._estimate_syllables('vacuum'))
+        self.assertEqual(3, prosl._estimate_syllables('continuum'))
+        self.assertEqual(4, prosl._estimate_syllables('superfluous'))
+
+        # And a couple of incorrect results
+        self.assertEqual(1, prosl._estimate_syllables('apple'))
+        self.assertEqual(2, prosl._estimate_syllables('faced'))
+        self.assertEqual(2, prosl._estimate_syllables('james'))
+
+    def test_count_syllables(self):
+        self.assertEqual(0, prosl._count_syllables(''))
+
+        self.assertEqual(1, prosl._count_syllables('a'))
+        self.assertEqual(1, prosl._count_syllables('an'))
+        self.assertEqual(1, prosl._count_syllables('I'))
+
+        self.assertEqual(1, prosl._count_syllables('the'))
+        self.assertEqual(1, prosl._count_syllables('ate'))
+        self.assertEqual(1, prosl._count_syllables('oat'))
+        
+        self.assertEqual(1, prosl._count_syllables('fire'))
+        self.assertEqual(1, prosl._count_syllables('pale'))
+        self.assertEqual(1, prosl._count_syllables('gross'))
+        self.assertEqual(1, prosl._count_syllables('strengths'))
+        self.assertEqual(5, prosl._count_syllables('archaeopterix'))
+        self.assertEqual(4, prosl._count_syllables('pterodactyl'))
+        self.assertEqual(1, prosl._count_syllables('hound'))
+        self.assertEqual(2, prosl._count_syllables('hounded'))
+        self.assertEqual(3, prosl._count_syllables('vacuum')) #vac-u-um
+        self.assertEqual(4, prosl._count_syllables('continuum'))
+        self.assertEqual(4, prosl._count_syllables('superfluous'))
+
+        self.assertEqual(2, prosl._count_syllables('apple'))
+        self.assertEqual(1, prosl._count_syllables('james'))
+
+        # Definitely not found in the dictionary; fall through to estimation.
+        self.assertEqual(2, prosl._count_syllables('qwerty'))
+        self.assertEqual(4, prosl._count_syllables('CAPITALIZE'))
+
+    def test_gunning_fog_index(self):
+        stats = {
+            'Syllable Distribution' : None,
+            'Syllable Count' : None,
+            'Average Sentence Length' : None
+        }
+
+
+    def test_coleman_liau_index(self):
+        stats = {
+            'Word Count' : None,
+            'Sentence Count' : None,
+            'Average Sentence Length' : None
+        }
+
+    def test_flesch_kincaid_index(self):
+        stats = {
+            'Word Count' : None,
+            'Syllable Count' : None,
+            'Average Sentence Length' : None
+        }
 
 
 class TestCore(unittest.TestCase):
@@ -34,14 +154,84 @@ class TestCore(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_split_string(self):
-        pass
+    def test_split_text(self):
+        split = prosl._split_text(lorem_ipsum)
+        self.assertRaises(TypeError, len, split)
+        split_words = []
+        for line_num, token in split:
+            self.assertEqual(1, line_num)
+            split_words.append(token)
+        self.assertEqual(475, len(split_words))
+        self.assertEqual('Though', split_words[0])
+        self.assertEqual('blood.', split_words[-1])
+        self.assertEqual('in', split_words[-2])
+        self.assertEqual('of', split_words[200])
 
-    def test_search(self):
-        pass
+    def test_analyze(self):
+        
+        # No testing extended_list option here, since that's 
+        # tested more effectively in TestResources.
 
-    def test_insensitive_string_search(self):
-        pass
+        flags = prosl.analyze(lorem_ipsum, proximity=15, word_thresh=0,
+                                     char_thresh=0)
+        self.assertEqual(6, len(flags))
+        self.assertEqual(prosl.PROXIMITY_FLAG, flags[0][0])
+
+        flags = prosl.analyze(lorem_ipsum, proximity=15, word_thresh=0,
+                                     char_thresh=0, track_all_words=True)
+        self.assertEqual(92, len(flags))
+        self.assertEqual(prosl.PROXIMITY_FLAG, flags[0][0])
+
+        flags = prosl.analyze(lorem_ipsum, proximity=0, word_thresh=20,
+                                     char_thresh=0)
+        self.assertEqual(1, len(flags))
+        self.assertEqual(prosl.WTHRESH_FLAG, flags[0][0])
+
+        flags = prosl.analyze(lorem_ipsum, proximity=0, word_thresh=0,
+                                     char_thresh=100)
+        self.assertEqual(1, len(flags))
+        self.assertEqual(prosl.CTHRESH_FLAG, flags[0][0])
+
+    def test_get_stats(self):
+        stats = prosl.get_stats(lorem_ipsum)
+        
+        self.assertEqual(len(lorem_ipsum), stats.get('Character Count'))
+        self.assertEqual(2235, stats.get('Letter Count'))
+        self.assertEqual(1, stats.get('Sentence Count'))
+        self.assertEqual(475, stats.get('Word Count'))
+        self.assertEqual(475, stats.get('Average Sentence Length'))
+        self.assertAlmostEqual(4.827368421052632, 
+                               stats.get('Average Word Length'))
+        self.assertEqual(252, stats.get('Unique Words'))
+        self.assertEqual([('the',56),('of',30),('and',21),('in',17),
+                          ('white',16),('though',12),('to',7),('a',5),
+                          ('this',5),('all',4),('for',4),('great',4),
+                          ('hue',4),('made',4),('their',4),('among',3),
+                          ('being',3),('by',3),('even',3),('is',3)], 
+                         stats.get('Top Twenty Words'))
+        self.assertAlmostEqual(53.05263157894737, stats.get('Lexical Density'))
+
+        # With indices
+        stats = prosl.get_stats(lorem_ipsum, indices=True)
+        
+        self.assertEqual(len(lorem_ipsum), stats.get('Character Count'))
+        self.assertEqual(2235, stats.get('Letter Count'))
+        self.assertEqual(1, stats.get('Sentence Count'))
+        self.assertEqual(725, stats.get('Syllable Count'))
+        self.assertEqual({1: 307, 2: 108, 3: 40, 4: 18, 5: 2},
+                         stats.get('Syllable Distribution'))
+        self.assertEqual(475, stats.get('Word Count'))
+        self.assertEqual(475, stats.get('Average Sentence Length'))
+        self.assertAlmostEqual(4.827368421052632, 
+                               stats.get('Average Word Length'))
+        self.assertEqual(252, stats.get('Unique Words'))
+        self.assertEqual([('the',56),('of',30),('and',21),('in',17),
+                          ('white',16),('though',12),('to',7),('a',5),
+                          ('this',5),('all',4),('for',4),('great',4),
+                          ('hue',4),('made',4),('their',4),('among',3),
+                          ('being',3),('by',3),('even',3),('is',3)], 
+                         stats.get('Top Twenty Words'))
+        self.assertAlmostEqual(53.05263157894737, stats.get('Lexical Density'))
 
 
 class TestFormatting(unittest.TestCase):
@@ -51,14 +241,84 @@ class TestFormatting(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_split_string(self):
+    def test_format_flag(self):
+        self.assertEqual('Line 1: Proximity threshold exceeded for the '
+                         'word "foo": "foo bar baz foo"', 
+                         prosl._format_flag((prosl.PROXIMITY_FLAG, 1, 'foo',
+                                             'foo bar baz foo')))
+        self.assertEqual('Line 1: Character-count threshold exceeded (1000 '
+                         'characters) in the following sentence: '
+                         '"foo bar baz foo"', 
+                         prosl._format_flag((prosl.CTHRESH_FLAG, 1, 1000,
+                                             'foo bar baz foo')))
+        self.assertEqual('Line 1: Word-count threshold exceeded (1000 '
+                         'words) in the following sentence: '
+                         '"foo bar baz foo"', 
+                         prosl._format_flag((prosl.WTHRESH_FLAG, 1, 1000,
+                                             'foo bar baz foo')))
+        self.assertEqual("(None, 1, 1000, 'foo bar baz foo')", 
+                         prosl._format_flag((None, 1, 1000, 'foo bar baz foo')))
+
+    def test_format_stats(self):
         pass
 
-    def test_search(self):
-        pass
+    def test_get_flag_desc(self):
+        self.assertEqual('Flags are for sentence length > 21 words, or '
+                         'sentence length > 99 characters, or two occurrences '
+                         'of an uncommon word < 16 words apart.',
+                         prosl._get_flag_desc(word_thresh=22, char_thresh=100,
+                                              proximity=17))
+        self.assertEqual('Flags are for '
+                         'sentence length > 99 characters, or two occurrences '
+                         'of an uncommon word < 16 words apart.',
+                         prosl._get_flag_desc(word_thresh=0, char_thresh=100,
+                                              proximity=17))
+        self.assertEqual('Flags are for sentence length > 21 words, or '
+                         'two occurrences '
+                         'of an uncommon word < 16 words apart.',
+                         prosl._get_flag_desc(word_thresh=22, char_thresh=0,
+                                              proximity=17))
+        self.assertEqual('Flags are for sentence length > 21 words, or '
+                         'sentence length > 99 characters.',
+                         prosl._get_flag_desc(word_thresh=22, char_thresh=100,
+                                              proximity=0))
+        self.assertEqual('Flags are for sentence length > 21 words.',
+                         prosl._get_flag_desc(word_thresh=22, char_thresh=0,
+                                              proximity=0))
+        self.assertEqual('Flags are for sentence length > 99 characters.',
+                         prosl._get_flag_desc(word_thresh=0, char_thresh=100,
+                                              proximity=0))
+        self.assertEqual('Flags are for two occurrences '
+                         'of an uncommon word < 16 words apart.',
+                         prosl._get_flag_desc(word_thresh=0, char_thresh=0,
+                                              proximity=17))
 
-    def test_insensitive_string_search(self):
-        pass
+        self.assertEqual('No flags were defined.',
+                         prosl._get_flag_desc(word_thresh=0, char_thresh=0,
+                                              proximity=0))
+
+    def test_write_results(self):
+        stats = {}
+        flags = []
+        out = './testout.txt'
+        try:
+            prosl.write_results(flags, stats, out_file=out, indices=False)
+            with open(out, 'r', encoding='utf-8') as t:
+                self.assertEqual(3, len(t.readlines()))
+
+            flags = [(prosl.PROXIMITY_FLAG, 1, 'foo', 'foo bar baz foo'),
+                     (prosl.WTHRESH_FLAG, 1, 1000, 'foo bar baz foo')]
+            prosl.write_results(flags, stats, out_file=out, indices=False)
+            with open(out, 'r', encoding='utf-8') as t:
+                self.assertEqual(4, len(t.readlines()))
+        except IOError as e:
+            fail(e)
+        finally:
+            if os.path.exists(out):
+                try:
+                    os.remove(out)
+                except Exception as e:
+                    print('\nUnable to delete file {}\n'.format(out))
 
 
 class TestResources(unittest.TestCase):
@@ -68,8 +328,15 @@ class TestResources(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_common_words(self):
+        self.assertEqual([''], _resources.common_words(track_all_words=True))
+        self.assertEqual(_resources.COMMON_WORDS, _resources.common_words())
+        self.assertCountEqual((_resources.COMMON_WORDS + 
+                               _resources.COMMON_WORDS_EXTENSION),
+                              _resources.common_words(extended_list=True))
+
     def test_get_syllable_dict(self):
-        syll_lu = prosl._resources.get_syllable_dict()
+        syll_lu = _resources.get_syllable_dict()
         self.assertIsInstance(syll_lu, dict)
 
         self.assertEqual(2, syll_lu.get('aa'))
@@ -218,9 +485,6 @@ class TestUtils(unittest.TestCase):
 
                 # Ensure correct result
                 self.assertEqual(r1, r2)
-
-                # Ensure cache access is fast
-                self.assertAlmostEqual(0, t2 - t1)
 
                 # Ensure cache access is faster than computation
                 self.assertLess((t2 - t1), (t1 - t0))
