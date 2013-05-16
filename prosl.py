@@ -134,8 +134,7 @@ def _split_text(text):
             yield (line_num + 1, token)
 
 def _get_stats(text, indices=False):
-    '''Get a bunch of statistics about the text.
-    '''
+    '''Get a bunch of statistics about the text.'''
     
     split = [token for _, token in _split_text(text)]
     stats = {

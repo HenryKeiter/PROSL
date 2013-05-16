@@ -200,7 +200,38 @@ class TestUtils(unittest.TestCase):
                           1, ['a','c','e','g'])
 
     def test_memoized(self):
-        pass
+        import time
+        try:
+            @prosl_utils.memoized
+            def t(n):
+                s = '0'*1000
+                for i in range(n):
+                    s = s + str(i)
+                return s
+
+            for i in range(50):
+                t0 = time.time()
+                r1 = t(200000 + i)
+                t1 = time.time()
+                r2 = t(200000 + i)
+                t2 = time.time()
+
+                # Ensure correct result
+                self.assertEqual(r1, r2)
+
+                # Ensure cache access is fast
+                self.assertAlmostEqual(0, t2 - t1)
+
+                # Ensure cache access is faster than computation
+                self.assertLess((t2 - t1), (t1 - t0))
+
+            self.assertEqual(50, len(t.cache))
+            t.cache.clear()
+            self.assertEqual(0, len(t.cache))
+        except AssertionError as ae:
+            raise ae
+        except Exception as e:
+            self.fail(e)
 
 
 if __name__ == '__main__':
