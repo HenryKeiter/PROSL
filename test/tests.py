@@ -125,26 +125,88 @@ class TestAnalytics(unittest.TestCase):
         self.assertEqual(4, prosl._count_syllables('CAPITALIZE'))
 
     def test_gunning_fog_index(self):
+        # Just some fake small stats
         stats = {
-            'Syllable Distribution' : None,
-            'Syllable Count' : None,
-            'Average Sentence Length' : None
+            'Syllable Distribution' : {1: 7, 2: 2, 3: 9},
+            'Syllable Count' : 38,
+            'Average Sentence Length' : 9
         }
+        self.assertAlmostEqual(3.905263157894737,
+                               prosl._gunning_fog_index(stats))
 
+        # lorem ipsum dolor sit amet (etc etc etc)
+        stats = {
+            'Syllable Distribution' : {1: 21, 2: 23, 3: 17, 4: 5, 5: 3},
+            'Syllable Count' : 153,
+            'Average Sentence Length' : 17.25
+        }
+        self.assertAlmostEqual(7.184967320261439,
+                               prosl._gunning_fog_index(stats))
+
+        # lorem_ipsum
+        stats = {
+            'Syllable Distribution' : {1: 307, 2: 108, 3: 40, 4: 18, 5: 2},
+            'Syllable Count' : 725,
+            'Average Sentence Length' : 475
+        }
+        self.assertAlmostEqual(190.1710344827586,
+                               prosl._gunning_fog_index(stats))
 
     def test_coleman_liau_index(self):
+        # Just some fake small stats
         stats = {
-            'Word Count' : None,
-            'Sentence Count' : None,
-            'Average Sentence Length' : None
+            'Word Count' : 18,
+            'Sentence Count' : 2,
+            'Average Word Length' : 4
         }
+        self.assertAlmostEqual(4.431111111111111,
+                               prosl._coleman_liau_index(stats))
+
+        # lorem ipsum dolor sit amet (etc etc etc)
+        stats = {
+            'Word Count' : 69,
+            'Sentence Count' : 4,
+            'Average Word Length' : 5.478260869565218
+        }
+        self.assertAlmostEqual(14.696231884057969,
+                               prosl._coleman_liau_index(stats))
+
+        # lorem_ipsum
+        stats = {
+            'Word Count' : 475,
+            'Sentence Count' : 1,
+            'Average Word Length' : 4.827368421052632
+        }
+        self.assertAlmostEqual(12.522610526315791,
+                               prosl._coleman_liau_index(stats))
 
     def test_flesch_kincaid_index(self):
+        # Just some fake small stats
         stats = {
-            'Word Count' : None,
-            'Syllable Count' : None,
-            'Average Sentence Length' : None
+            'Word Count' : 18,
+            'Syllable Count' : 38,
+            'Average Sentence Length' : 9
         }
+        self.assertAlmostEqual(19.100000000000023,
+                               prosl._flesch_kincaid_index(stats))
+
+        # lorem ipsum dolor sit amet (etc etc etc)
+        stats = {
+            'Word Count' : 69,
+            'Syllable Count' : 153,
+            'Average Sentence Length' : 17.25
+        }
+        self.assertAlmostEqual(1.7349456521739341,
+                               prosl._flesch_kincaid_index(stats))
+
+        # lorem_ipsum
+        stats = {
+            'Word Count' : 475,
+            'Syllable Count' : 725,
+            'Average Sentence Length' : 475
+        }
+        self.assertAlmostEqual(-404.41631578947363,
+                               prosl._flesch_kincaid_index(stats))
 
 
 class TestCore(unittest.TestCase):
@@ -500,3 +562,4 @@ class TestUtils(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    # print(prosl.get_stats(lorem_ipsum, True))
