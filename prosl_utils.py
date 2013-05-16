@@ -1,6 +1,7 @@
 '''Various utility funtionality--mostly for speed enhancements.
 '''
 
+import bisect
 import collections
 import functools
 
@@ -80,33 +81,20 @@ def split_string(s, *delimiters, split_whitespace=True):
     return splitlist
 
 def search(key, items):
-    '''Quick & dirty binary search. Find `key` in `items`.
+    '''Quick & dirty binary search using `bisect`. Find `key` in `items`.
 
     Returns -1 if the key is not found.
-
-    TODO Why on earth isn't this just using the bisect module???
     '''
 
-    if not items:
-        return -1
-    if len(items) == 1:
-        return 0 if items[0] == key else -1
-    pivot = len(items)//2
-    if key < items[pivot]:
-        return search(key, items[:pivot])
-    if key > items[pivot]:
-        result = search(key, items[pivot:])
-        return result + pivot if result >= 0 else result
-    return pivot
+    idx = bisect.bisect_left(items, key)
+    if idx != len(items) and items[idx] == key:
+        return idx
+    return -1
 
 def insensitive_string_search(key, items):
-    '''Quick & dirty binary search. Find `key` in `items`.
+    '''Case-insensitive binary search. Find `key` in `items`.
 
     Returns -1 if the key is not found.
-
-    @NOTE: This function is *not* case-sensitive!!
-
-    TODO Why on earth isn't this just using the bisect module???
     '''
 
     if not items:
@@ -128,25 +116,37 @@ def insensitive_string_search(key, items):
 
 def t():
     '''Temporary function that I'm using to rebuild the syllable corpus'''
-    delimited_lines = {}
-    non_delimited_lines = []
+
+    header = '\n# '.join(['# This syllable dictionary is derived from the Moby',
+                         'Hyphenation List by Grady Ward. It was downloaded',
+                         'from Project Gutenberg and is available here:',
+                         r'http://www.gutenberg.org/dirs/etext02/mhyph10.zip'])
+
+    lu = {} # Using intermediate dict to weed out duplicate keys
     with open('mhyph.txt', encoding='utf-8') as i:
-        lines = i.readlines()
-    with open('unhyph.txt', mode='w', encoding='utf-8') as o:
-        for line_no, line in enumerate(lines):
-            delimited_lines[line_no] = line.lower()
-            non_delimited_lines.append((line.lower().replace('\u00a5',''), line_no))
-        non_delimited_lines.sort()
-        o.writelines([l for l, _ in non_delimited_lines])
-    with open('newhyph.txt', mode='w', encoding='utf-8') as n:
-        for _, line_no in non_delimited_lines:
-            n.write(delimited_lines[line_no])
+            for line in i:
+                lu[line.strip().replace('\u00a5','')] = \
+                    len(split_string(line.strip(),'\u00a5','-'))
+                       
+    fmt = '\t"{}" : {},\n'
+    with open('syll_dict.txt', mode='w', encoding='utf-8') as o:
+        o.write(header)
+        o.write('\n\n')
+        o.write('SYLLABLE_LOOKUP = {\n')
+        for k, v in sorted(lu.items()):
+            o.write(fmt.format(k, v))
+        o.write('}\n')
+
+    import gzip
+    with gzip.open('syll_dict.txt.gz', mode='wb') as o:
+        with open('syll_dict.txt', mode='rb') as i:
+            o.writelines(i)
 
 def main():
-    # t()
-    with open('unhyph.txt', encoding='utf-8') as f:
-        lines = [l.strip() for l in f.readlines()]
-        print(insensitive_string_search('the', lines))
+    t()
+    # with open('unhyph.txt', encoding='utf-8') as f:
+    #     lines = [l.strip() for l in f.readlines()]
+    #     print(insensitive_string_search('the', lines))
 
 if __name__ == '__main__':
     main()

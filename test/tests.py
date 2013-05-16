@@ -68,12 +68,14 @@ class TestResources(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_get_syllable_files(self):
-        files = prosl._resources.get_syllable_files()
-        self.assertIsInstance(files, tuple)
-        self.assertEqual(len(files), 2)
-        self.assertIsNotNone(files[0])
-        self.assertIsNotNone(files[1])
+    def test_get_syllable_dict(self):
+        syll_lu = prosl._resources.get_syllable_dict()
+        self.assertIsInstance(syll_lu, dict)
+
+        self.assertEqual(2, syll_lu.get('aa'))
+        self.assertEqual(4, syll_lu.get('a cappella'))
+        self.assertEqual(3, syll_lu.get('zyrian'))
+        self.assertIsNone(syll_lu.get('Ahab'))
 
 
 class TestUtils(unittest.TestCase):

@@ -18,10 +18,9 @@ import collections
 import os
 import sys
 import _resources
-from prosl_utils import insensitive_string_search, split_string, memoized
+from prosl_utils import insensitive_string_search,search,split_string,memoized
 
-SYLLABLE_WORDS, WORDS = ([l.strip().decode('utf-8') for l in f.readlines()] 
-                         for f in _resources.get_syllable_files())
+SYLLABLE_LOOKUP = _resources.get_syllable_dict()
 
 PROXIMITY_FLAG = 10
 CTHRESH_FLAG = 20
@@ -45,12 +44,15 @@ def _count_syllables(word):
     If the word is present in the mhyph hyphenated corpus,
     return the number of syllables found there. Else, estimate the number of
     syllables as best as (easily) possible (_estimate_syllables(word)).
+
+    @NOTE: The given word should be lowercase, or it will fall through this 
+    function to the estimation function.
     '''
     
-    line_no = insensitive_string_search(word, WORDS)
-    if line_no == -1:
+    count = SYLLABLE_LOOKUP.get(word)
+    if count is None:
         return _estimate_syllables(word)
-    return len(split_string(SYLLABLE_WORDS[line_no], '\u00a5', '-'))
+    return count
 
 def _estimate_syllables(word):
     '''Estimate the number of syllables in the given word.
@@ -213,7 +215,7 @@ def analyze(text, **opts):
         simpletoken = token.strip(_resources.PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
-            if insensitive_string_search(simpletoken, _common_word_list) == -1:
+            if search(simpletoken, _common_word_list) == -1:
                 if simpletoken in last_n_simple_tokens:
                     problem_phrases.append((PROXIMITY_FLAG,line_num,simpletoken, 
                                            ' '.join(last_n_tokens)))
@@ -390,7 +392,7 @@ def main():
 
     _count_syllables.cache.clear()
 
-testing = [r'./test/mobydick.txt','-e','-w','200','-c','100','-p','17','-i']
+testing = [r'./test/mobydick.txt','-e','-w','22','-c','100','-p','17','-i']
 
 if __name__ == '__main__':
     main()

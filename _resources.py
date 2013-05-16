@@ -5,7 +5,7 @@
 
 import os
 import string
-import zipfile
+import gzip
 
 NWS_DELIMITERS = ['--','-','\x97']
 PUNCTUATION = ''.join([string.punctuation, '\x92','\x93','\x94','\x97'])
@@ -143,30 +143,23 @@ COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
 
 VOWELS = ('a', 'e', 'i', 'o', 'u', 'y', 'A', 'E', 'I', 'O', 'U', 'Y')
 
-def get_syllable_files():
-    '''Get two read-only file-like objects, representing the two syllable files.
-
-    One of these has delimited syllables; the other does not (this other one is
-    used only for lookups). They are otherwise identical. The files returned are
-    `delimited`, `non_delimited`.
-    '''
+def get_syllable_dict():
+    '''Get a dict from (lowercase) words/phrases to syllable-count.'''
 
     syl_loc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                           'syllables.zip')
+                           'syll_dict.txt.gz')
     try:
-        with zipfile.ZipFile(syl_loc) as z:
-            delimited = z.open('mhyph.txt', 'rU')
-            non_delimited = z.open('unhyph.txt', 'rU')
-            return delimited, non_delimited
+        with gzip.open(syl_loc, 'rt', encoding='utf-8') as z:
+            env = {}
+            exec(z.read(), env)
+            return env['SYLLABLE_LOOKUP']
     except IOError as e:
-        print('Unable to open syllable files at {}'.format(syl_loc))
-        return None, None
+        print('Unable to open syllable file at {}'.format(syl_loc))
+        return None
 
 def main():
-    d = get_syllable_files()[0]
-    for line in d:
-        print(bytes.decode(line).strip().split('\u00a5'))
-        exit()
+    d = get_syllable_dict()
+    print(d.get('a cappella'))
 
 if __name__ == '__main__':
     main()
