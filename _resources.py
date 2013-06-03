@@ -10,9 +10,9 @@ import gzip
 NWS_DELIMITERS = ['--','-','\x97']
 PUNCTUATION = ''.join([string.punctuation, '\x92','\x93','\x94','\x97'])
 TERMINATORS = ['.', '?', '!']
-NON_TERMINATORS = ['Dr.', 'Ms.', 'Mrs.', 'Mr.', 'Mme.', 'Jr.', 'Sr.', 'St.']
+NON_TERMINATORS = {'Dr.', 'Ms.', 'Mrs.', 'Mr.', 'Mme.', 'Jr.', 'Sr.', 'St.'}
 
-COMMON_WORDS = ["","a","about","all","an","and","are","as","at",
+COMMON_WORDS = {"","a","about","all","an","and","are","as","at",
     "be","been","but","by","call","can","come","could","day","did",
     "do","down","each","find","first","for","from","go","had","has",
     "have","he","her","him","his","hot","how","i","if","in","is","it",
@@ -22,9 +22,9 @@ COMMON_WORDS = ["","a","about","all","an","and","are","as","at",
     "than","that","the","their","them","then","there","these","they",
     "thing","this","time","to","two","up","use","was","water","way",
     "we","were","what","when","which","who","will","with","word",
-    "would","write","you","your"]
+    "would","write","you","your"}
 
-COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
+COMMON_WORDS_EXTENSION = {"able","above","act","add","afraid","after",
     "again","against","age","ago","agree","air","allow","also",
     "always","am","among","anger","animal","answer","any","appear",
     "apple","area","arm","arrange","arrive","art","ask","atom",
@@ -139,16 +139,16 @@ COMMON_WORDS_EXTENSION = ["able","above","act","add","afraid","after",
     "whether","while","white","whole","whose","why","wide","wife",
     "wild","win","wind","window","wing","winter","wire","wish",
     "woman","women","won't","wonder","wood","work","world","written",
-    "wrong","wrote","yard","year","yellow","yes","yet","young"]
+    "wrong","wrote","yard","year","yellow","yes","yet","young"}
 
-VOWELS = ('a', 'e', 'i', 'o', 'u', 'y', 'A', 'E', 'I', 'O', 'U', 'Y')
+VOWELS = {'a', 'e', 'i', 'o', 'u', 'y', 'A', 'E', 'I', 'O', 'U', 'Y'}
 
 def common_words(**opts):
     if opts.get('track_all_words'):
-        return ['']
+        return set()
     if opts.get('extended_list'):
-        return sorted(x for x in (COMMON_WORDS + COMMON_WORDS_EXTENSION))
-    return [x for x in COMMON_WORDS]
+        return COMMON_WORDS.union(COMMON_WORDS_EXTENSION)
+    return set(COMMON_WORDS)
 
 def get_syllable_dict():
     '''Get a dict from (lowercase) words/phrases to syllable-count.'''

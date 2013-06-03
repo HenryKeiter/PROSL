@@ -391,10 +391,10 @@ class TestResources(unittest.TestCase):
         pass
 
     def test_common_words(self):
-        self.assertEqual([''], _resources.common_words(track_all_words=True))
+        self.assertEqual(set(), _resources.common_words(track_all_words=True))
         self.assertEqual(_resources.COMMON_WORDS, _resources.common_words())
-        self.assertCountEqual((_resources.COMMON_WORDS + 
-                               _resources.COMMON_WORDS_EXTENSION),
+        self.assertCountEqual((_resources.COMMON_WORDS.union(
+                               _resources.COMMON_WORDS_EXTENSION)),
                               _resources.common_words(extended_list=True))
 
     def test_get_syllable_dict(self):

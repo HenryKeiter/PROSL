@@ -18,7 +18,7 @@ import collections
 import os
 import sys
 import _resources
-from prosl_utils import insensitive_string_search,search,split_string,memoized
+from prosl_utils import split_string, memoized
 
 SYLLABLE_LOOKUP = _resources.get_syllable_dict()
 
@@ -193,7 +193,7 @@ def analyze(text, **opts):
     proximity = opts.get('proximity', 0)
     wthresh = opts.get('word_thresh', 17)
     cthresh = opts.get('char_thresh', 95)
-    _common_word_list = _resources.common_words(**opts)
+    _common_word_set = _resources.common_words(**opts)
     
     problem_phrases = []
     last_n_simple_tokens = collections.deque([], proximity)
@@ -204,7 +204,7 @@ def analyze(text, **opts):
         simpletoken = token.strip(_resources.PUNCTUATION).lower()
         if proximity:
             last_n_tokens.append(token)
-            if search(simpletoken, _common_word_list) == -1:
+            if simpletoken not in _common_word_set:
                 if simpletoken in last_n_simple_tokens:
                     problem_phrases.append((PROXIMITY_FLAG,line_num,simpletoken, 
                                            ' '.join(last_n_tokens)))
